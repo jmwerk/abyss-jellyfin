@@ -1,0 +1,35 @@
+name: verify-spotlight-version
+
+on:
+  pull_request:
+    paths:
+      - scripts/spotlight/spotlight.html
+  push:
+    branches: [main]
+    paths:
+      - scripts/spotlight/spotlight.html
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4.2.2
+
+    - name: Compare ABYSS_SPOTLIGHT_VERSION against latest release
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        LATEST_TAG=$(gh release view --repo "${{ github.repository }}" --json tagName -q .tagName)
+        LATEST_VERSION="${LATEST_TAG#v}"
+        FILE_VERSION=$(grep -oP "const ABYSS_SPOTLIGHT_VERSION = '\K[^']+" scripts/spotlight/spotlight.html)
+
+        echo "Latest release: $LATEST_VERSION"
+        echo "File version:   $FILE_VERSION"
+
+        if [ "$FILE_VERSION" != "$LATEST_VERSION" ]; then
+          echo "::error file=scripts/spotlight/spotlight.html::ABYSS_SPOTLIGHT_VERSION ('$FILE_VERSION') does not match the latest release ('$LATEST_VERSION'). This causes a permanent false \"update available\" banner for anyone running this code. It should always match the latest release tag; update-spotlight-version.yml keeps it in sync automatically on release, so if it drifted here it was likely edited by hand or clobbered by a merge/rebase."
+          exit 1
+        fi
